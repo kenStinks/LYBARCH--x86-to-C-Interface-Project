@@ -1,36 +1,85 @@
-// Template C to x86 call
+//Jeanne Eugenie Arguelles    XX22
+//John Kirsten Espiritu       XX22
+
 #include <stdio.h>
 #include <stdlib.h>
-#include <windows.h>
+#include <time.h>
+#include <math.h>
 
-// extern void asmhello();
-extern void sdot_asm(int n, double A[30], double B[30], double* result);
+#define TRUE 1
+typedef unsigned char boolean;
 
-double sdot_c(int n, double A[30], double B[30]){
-    double result = 0;
-    for(int i=0;i<n;i++){
-        result += A[i]*B[i];
-    }
-    return result;
+struct test_result{
+    double average_time;
+    boolean sanity;
 };
 
-int main(int argc, char *argv[]) {
-// asmhello();
-    //initialize variables
-    int n = 10;
-    double A[30], B[30];
-    for(int i=0;i<n;i++){
-        A[i] = (float)(i+1);
-        B[i] = (float)(n-i);
+extern void sdot_asm(double A, double B, double* result);
+
+void sdot_c(double A, double B, double* result){
+    (*result) += A*B;
+}
+
+struct test_result test(int n, void (*sdot)(double, double, double*), void (*sdot_sanity)(double, double, double*)){
+    clock_t start, end;
+        
+    double expected_result = 0;
+    boolean sanity = TRUE;
+
+    for(int j=0;j<n;j++){
+        double a = (double)((j%100)+1); //numbers 1 to 100, wrapping
+        double b = (double)(100-(j%100)); //numbers 100 to 1, wrapping
+        sdot_sanity(a,b,&expected_result);
     }
 
-    double result_c = sdot_c(n, A, B);
-    printf("\nResult in C: %f", result_c);
+    double average_time = 0.;
 
-    double result_asm;
-    sdot_asm(n, A, B, &result_asm);
+    for (int i=0; i<30;i++){
+        start = clock(); //start time
 
-    printf("\nResult in ASM: %f", result_asm);
+        double result = 0;
+        for(int j=0;j<n;j++){
+            double a = (double)((j%100)+1); //numbers 1 to 100, wrapping
+            double b = (double)(100-(j%100)); //numbers 100 to 1, wrapping
+            sdot(a,b,&result);
+        }
+
+        //check if result is consistent with expected
+        sanity = (result == expected_result) && sanity; 
+        
+        end = clock(); //end time
+        double time = ((double)(end - start) / CLOCKS_PER_SEC);
+        average_time += time;
+    }
+
+    average_time /= 30.;
+
+    struct test_result test_result = {average_time, sanity};
+
+    return test_result;
+}
+
+void full_test(int n){
+    struct test_result C_res = test(pow(2,n), sdot_c, sdot_asm);
+    printf("C\t(n=2^%d) Average Time: %fs | Sanity: ", n, C_res.average_time);
+    if(C_res.sanity) printf("Yes\n");
+    else printf("No\n");
+
+    struct test_result ASM_res = test(pow(2,n), sdot_asm, sdot_c);
+    printf("ASM\t(n=2^%d) Average Time: %fs | Sanity: ", n, ASM_res.average_time);
+    if(ASM_res.sanity) printf("Yes\n");
+    else printf("No\n");
+
+    double time_diff = fabs(C_res.average_time-ASM_res.average_time);
+    if(C_res.average_time < ASM_res.average_time) printf("C was faster than ASM by %fs\n\n", time_diff);
+    else printf("ASM was faster than C by %fs!\n\n", time_diff);
+}
+
+int main(int argc, char *argv[]) {
+
+    full_test(20);
+    full_test(24);
+    full_test(28);
 
     return 0;
 }
