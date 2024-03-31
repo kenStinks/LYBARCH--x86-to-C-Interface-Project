@@ -13,3 +13,4 @@ nasm -f win64 "%arg1%.asm"
 :: -Zi produces debug symbols, can be used for debugging/disassembling
 gcc -c main.c -o main.o
 gcc -o main "%arg1%.obj" main.o
+main
